@@ -1,0 +1,3 @@
+# BD files
+.bd_tool/
+pubspec.lock

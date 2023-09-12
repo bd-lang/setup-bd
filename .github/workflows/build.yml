@@ -1,0 +1,22 @@
+# Validate that the compiled artifacts are up-to-date.
+
+name: Build
+
+on:
+  pull_request:
+    branches: [main]
+  schedule:
+    - cron: "0 0 * * 0" # Run every Sunday at 00:00.
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+      - uses: ./
+        with:
+          sdk: dev
+      - run: bd pub get
+      - run: bd analyze --fatal-infos
+      - run: bd tool/sig.bd --verify
+      - run: npm run build

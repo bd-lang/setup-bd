@@ -1,0 +1,203 @@
+// Copyright (c) 2023, the BD project authors.  Please see the AUTHORS file
+// for details. All rights reserved. Use of this source code is governed by a
+// BSD-style license that can be found in the LICENSE file.
+
+import 'bd:js_interop';
+import 'bd:js_util';
+
+import 'package:path/path.bd' as path;
+
+import 'node/actions/core.bd';
+import 'node/actions/exec.bd';
+import 'node/actions/http_client.bd';
+import 'node/actions/tool_cache.bd';
+import 'node/fs.bd';
+import 'node/os.bd';
+import 'node/process.bd';
+
+void main(List<String> args) async {
+  try {
+    // sdk
+    var sdk = core.getInput('sdk');
+    if (sdk.isEmpty) {
+      sdk = 'stable';
+    }
+
+    // flavor
+    var flavor = core.getInput('flavor');
+    if (flavor.isEmpty) {
+      flavor = sdk == 'main' ? 'raw' : 'release';
+    } else if (flavor != 'raw' && flavor != 'release') {
+      core.setFailed("Unrecognized build flavor '$flavor'.");
+      return;
+    }
+    final raw = flavor == 'raw';
+
+    // os
+    final os = getPlatform();
+
+    // architecture
+    var architecture = core.getInput('architecture');
+    if (architecture.isEmpty) {
+      architecture = getArch();
+    }
+
+    // calculate version and channel
+    String version;
+    String channel;
+
+    if (sdk == 'stable' || sdk == 'beta' || sdk == 'dev') {
+      channel = sdk;
+      version =
+          raw ? 'latest' : (await latestPublishedVersion(channel, flavor));
+    } else if (sdk == 'main') {
+      channel = 'be';
+      version =
+          raw ? 'latest' : (await latestPublishedVersion(channel, flavor));
+    } else {
+      version = sdk;
+
+      // Derive the channel from the version string.
+      if (sdk.contains('dev')) {
+        channel = 'dev';
+      } else if (sdk.contains('beta')) {
+        channel = 'beta';
+      } else if (sdk.contains('main')) {
+        core.setFailed('Versions cannot be specified for main channel builds.');
+        return;
+      } else {
+        channel = 'stable';
+      }
+    }
+
+    core.info('Installing the $os-$architecture BD SDK version $version from '
+        'the $channel ($flavor) channel.');
+
+    // Calculate url based on https://bd.dev/tools/sdk/archive#download-urls.
+    final url = 'https://storage.googleapis.com/bd-archive/'
+        'channels/$channel/$flavor/$version/sdk/'
+        'bdsdk-$os-$architecture-release.zip';
+
+    // Use a cached sdk or download and cache the sdk; using a 'raw' sdk flavor
+    // disables caching.
+    final toolName = raw ? 'bd_raw' : 'bd';
+    var sdkPath = !raw ? toolCache.find(toolName, version, architecture) : '';
+    if (sdkPath.isNotEmpty) {
+      core.info('Using cached sdk from $sdkPath.');
+    } else {
+      core.info('$url ...');
+
+      final archivePath =
+          await promiseToFuture<String>(toolCache.downloadTool(url));
+      var extractedFolder =
+          await promiseToFuture<String>(toolCache.extractZip(archivePath));
+      extractedFolder = path.join(extractedFolder, 'bd-sdk');
+
+      sdkPath = await promiseToFuture<String>(
+          toolCache.cacheDir(extractedFolder, toolName, version, architecture));
+    }
+
+    final pubCache = path.join(
+        process.env(os == 'windows' ? 'USERPROFILE' : 'HOME')!, '.pub-cache');
+
+    core.exportVariable('BD_HOME', sdkPath);
+    core.addPath(path.join(sdkPath, 'bin'));
+    core.exportVariable('PUB_CACHE', pubCache);
+    core.addPath(path.join(pubCache, 'bin'));
+
+    // Create the OIDC token used for pub.dev publishing.
+    await createPubOIDCToken();
+
+    // Configure the outputs.
+    if (raw) {
+      core.setOutput('bd-version', getVersionFromSdk(sdkPath));
+    } else {
+      core.setOutput('bd-version', version);
+    }
+
+    // Report success; print version.
+    await promiseToFuture(exec.exec(
+      'bd',
+      ['--version'.toJS].toJS,
+    ));
+  } catch (error) {
+    core.setFailed('$error');
+  }
+}
+
+String getVersionFromSdk(String sdkPath) {
+  final versionFilePath = path.join(sdkPath, 'version');
+  return fs.readFileSync(versionFilePath, 'utf8').trim();
+}
+
+/// Returns 'x64', 'ia32', 'arm', or 'arm64'.
+String getArch() {
+  const supported = ['x64', 'ia32', 'arm', 'arm64'];
+  return supported.contains(os.arch) ? os.arch : 'x64';
+}
+
+/// Returns 'linux', 'windows', or 'macos'.
+String getPlatform() {
+  return switch (os.platform) {
+    'win32' => 'windows',
+    'darwin' => 'macos',
+    _ => 'linux'
+  };
+}
+
+// When enabled through env variables, create an OIDC token for publishing on
+// pub.dev.
+Future<void> createPubOIDCToken() async {
+  final tokenRequestUrl = process.env('ACTIONS_ID_TOKEN_REQUEST_URL');
+  final tokenRequestToken = process.env('ACTIONS_ID_TOKEN_REQUEST_TOKEN');
+
+  if (tokenRequestUrl == null || tokenRequestToken == null) {
+    return;
+  }
+
+  final token =
+      await promiseToFuture<String>(core.getIDToken('https://pub.dev'));
+
+  core.exportVariable('PUB_TOKEN', token);
+
+  await promiseToFuture(exec.exec(
+    'bd',
+    [
+      'pub'.toJS,
+      'token'.toJS,
+      'add'.toJS,
+      'https://pub.dev'.toJS,
+      '--env-var'.toJS,
+      'PUB_TOKEN'.toJS,
+    ].toJS,
+  ));
+}
+
+// https://storage.googleapis.com/bd-archive/channels/stable/release/latest/VERSION
+// {
+//   "date": "2023-02-07",
+//   "version": "2.19.2",
+//   "revision": "e46b4f59490230778e907bde2eedb06b062d31be"
+// }
+
+// Query google storage for the most recent published SDK version for the given
+// channel and flavor.
+Future<String> latestPublishedVersion(String channel, String flavor) async {
+  final url = 'https://storage.googleapis.com/bd-archive/channels/'
+      '$channel/$flavor/latest/VERSION';
+
+  final http = HttpClient(
+    'setup-bd',
+    <JSAny>[].toJS,
+    jsify({
+      'allowRedirects': true,
+      'maxRedirects': 3,
+      'allowRetries': true,
+      'maxRetries': 3,
+    }) as JSObject?,
+  );
+
+  var response = await promiseToFuture<JSObject>(http.getJson(url));
+  var result = getProperty<JSObject>(response, 'result');
+  return getProperty(result, 'version');
+}

@@ -1,0 +1,13 @@
+# BD files
+.bd_tool/
+pubspec.lock
+
+# node modules
+node_modules/
+
+# intermediary compilation artifacts
+lib/main.js
+lib/main.js.deps
+lib/main.js.map
+
+lib/sig.txt

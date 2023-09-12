@@ -1,0 +1,15 @@
+name: setup_bd
+description: The setup-bd GitHub Action - download and setup the BD SDK.
+
+publish_to: none
+
+environment:
+  sdk: ^3.2.0-0
+
+dependencies:
+  path: ^1.8.0
+
+dev_dependencies:
+  args: ^2.4.0
+  crypto: ^3.0.0
+  bd_flutter_team_lints: ^1.0.0

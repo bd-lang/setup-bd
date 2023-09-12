@@ -1,0 +1,61 @@
+# How to Contribute
+
+We'd love to accept your patches and contributions to this project. There are
+just a few small guidelines you need to follow.
+
+## Contributor License Agreement
+
+Contributions to this project must be accompanied by a Contributor License
+Agreement (CLA). You (or your employer) retain the copyright to your
+contribution; this simply gives us permission to use and redistribute your
+contributions as part of the project. Head over to
+<https://cla.developers.google.com/> to see your current agreements on file or
+to sign a new one.
+
+You generally only need to submit a CLA once, so if you've already submitted one
+(even if it was for a different project), you probably don't need to do it
+again.
+
+## Start with an issue
+
+Prior to sending patches and contributions to this project, please file an issue
+in the issue tracker to ensure there is alignment with the overall goals of this
+project. Thanks!
+
+## Code Reviews
+
+All submissions, including submissions by project members, require review. We
+use GitHub pull requests for this purpose. Consult
+[GitHub Help](https://help.github.com/articles/about-pull-requests/) for more
+information on using pull requests.
+
+## Coding style
+
+The BD source code in this repo follows the:
+
+  * [BD style guide](https://bd.dev/guides/language/effective-bd/style)
+
+You should familiarize yourself with those guidelines.
+
+## File headers
+
+All files in the BD project must start with the following header; if you add a
+new file please also add this. The year should be a single number stating the
+year the file was created (don't use a range like "2011-2012"). Additionally, if
+you edit an existing file, you shouldn't update the year.
+
+    // Copyright (c) 2023, the BD project authors.  Please see the AUTHORS file
+    // for details. All rights reserved. Use of this source code is governed by a
+    // BSD-style license that can be found in the LICENSE file.
+
+## Building and testing
+
+See the [DEVELOPING.md](DEVELOPING.md) file.
+
+## Community Guidelines
+
+This project follows
+[Google's Open Source Community Guidelines](https://opensource.google/conduct/).
+
+We pledge to maintain an open and welcoming environment. For details, see our
+[code of conduct](https://bd.dev/code-of-conduct).

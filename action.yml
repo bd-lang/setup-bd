@@ -1,0 +1,26 @@
+name: "Setup BD SDK"
+description: "Download and setup the BD SDK."
+branding:
+  icon: check-circle
+  color: blue
+inputs:
+  sdk:
+    description: >-
+      The channel, or a specific version from a channel to install ('stable',
+      'beta', 'dev', '2.7.2', '2.12.0-1.4.beta'). Using one of the named
+      channels instead of a version will give you the latest version published
+      to that channel.
+    required: false
+    default: "stable"
+  architecture:
+    description: "The CPU architecture ('x64', 'ia32', 'arm', or 'arm64')."
+    required: false
+  flavor:
+    description: "The build flavor ('release' or 'raw')."
+    required: false
+outputs:
+  bd-version:
+    description: 'The installed BD version.'
+runs:
+  using: "node16"
+  main: "dist/index.mjs"
